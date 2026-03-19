@@ -1,0 +1,1396 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Aotearoa History Explorer</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --teal: #006E6E;
+    --teal-light: #00A89A;
+    --teal-pale: #E0F5F3;
+    --gold: #C8881A;
+    --gold-light: #F2B84B;
+    --gold-pale: #FEF5E4;
+    --green: #3A6B35;
+    --green-pale: #EAF3E8;
+    --red: #B83232;
+    --cream: #FDFAF5;
+    --ink: #1C1C2E;
+    --mid: #5A5A7A;
+    --border: #D8D0C4;
+    --white: #FFFFFF;
+    --shadow: 0 4px 24px rgba(0,0,0,0.10);
+    --shadow-lg: 0 8px 48px rgba(0,0,0,0.15);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--cream);
+    color: var(--ink);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ── BACKGROUND TEXTURE ── */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      radial-gradient(circle at 15% 20%, rgba(0,110,110,0.06) 0%, transparent 50%),
+      radial-gradient(circle at 85% 80%, rgba(200,136,26,0.06) 0%, transparent 50%),
+      radial-gradient(circle at 50% 50%, rgba(58,107,53,0.04) 0%, transparent 60%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* ── PROGRESS BAR ── */
+  #progress-bar {
+    position: fixed;
+    top: 0; left: 0;
+    height: 4px;
+    background: linear-gradient(90deg, var(--teal-light), var(--gold-light));
+    transition: width 0.4s ease;
+    z-index: 1000;
+  }
+
+  /* ── STEP INDICATOR ── */
+  #step-nav {
+    position: fixed;
+    top: 12px;
+    right: 16px;
+    display: flex;
+    gap: 6px;
+    z-index: 100;
+  }
+  .step-dot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    background: var(--border);
+    transition: all 0.3s ease;
+    cursor: pointer;
+  }
+  .step-dot.active { background: var(--teal); transform: scale(1.3); }
+  .step-dot.done { background: var(--teal-light); }
+
+  /* ── SCREENS ── */
+  .screen {
+    display: none;
+    position: relative;
+    z-index: 1;
+    min-height: 100vh;
+    padding: 60px 20px 40px;
+    max-width: 860px;
+    margin: 0 auto;
+    animation: fadeUp 0.5s ease both;
+  }
+  .screen.active { display: block; }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(24px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ── TYPOGRAPHY ── */
+  .display-title {
+    font-family: 'Playfair Display', serif;
+    font-size: clamp(2rem, 6vw, 3.6rem);
+    font-weight: 900;
+    line-height: 1.1;
+    color: var(--teal);
+  }
+  .section-title {
+    font-family: 'Playfair Display', serif;
+    font-size: clamp(1.4rem, 4vw, 2rem);
+    font-weight: 700;
+    color: var(--ink);
+    margin-bottom: 8px;
+  }
+  .step-label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--teal-light);
+    margin-bottom: 8px;
+  }
+  .body-text {
+    font-size: 1rem;
+    line-height: 1.7;
+    color: var(--mid);
+  }
+
+  /* ── CARDS ── */
+  .card {
+    background: var(--white);
+    border-radius: 16px;
+    padding: 24px;
+    box-shadow: var(--shadow);
+    border: 1px solid rgba(0,0,0,0.05);
+    margin-bottom: 16px;
+  }
+  .card-teal { border-left: 4px solid var(--teal); }
+  .card-gold { border-left: 4px solid var(--gold); }
+  .card-green { border-left: 4px solid var(--green); }
+
+  /* ── BUTTONS ── */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 28px;
+    border-radius: 50px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
+    border: none;
+    transition: all 0.2s ease;
+    text-decoration: none;
+  }
+  .btn-primary {
+    background: var(--teal);
+    color: white;
+  }
+  .btn-primary:hover { background: var(--teal-light); transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0,110,110,0.3); }
+  .btn-secondary {
+    background: transparent;
+    color: var(--teal);
+    border: 2px solid var(--teal);
+  }
+  .btn-secondary:hover { background: var(--teal-pale); }
+  .btn-gold {
+    background: var(--gold);
+    color: white;
+  }
+  .btn-gold:hover { background: var(--gold-light); transform: translateY(-2px); box-shadow: 0 6px 20px rgba(200,136,26,0.3); }
+
+  .btn-row {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-top: 28px;
+    align-items: center;
+  }
+
+  /* ── INPUTS ── */
+  input[type="text"], textarea, select {
+    width: 100%;
+    padding: 12px 16px;
+    border: 2px solid var(--border);
+    border-radius: 10px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.95rem;
+    color: var(--ink);
+    background: var(--white);
+    transition: border-color 0.2s;
+    margin-top: 6px;
+  }
+  input[type="text"]:focus, textarea:focus, select:focus {
+    outline: none;
+    border-color: var(--teal-light);
+    box-shadow: 0 0 0 3px rgba(0,168,154,0.12);
+  }
+  textarea { resize: vertical; min-height: 90px; }
+  label { font-weight: 500; font-size: 0.9rem; color: var(--ink); display: block; margin-top: 16px; }
+
+  /* ── WELCOME SCREEN ── */
+  #s0 { text-align: center; display: flex; flex-direction: column; justify-content: center; align-items: center; }
+  .koru-hero {
+    width: 120px; height: 120px;
+    background: linear-gradient(135deg, var(--teal), var(--teal-light));
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 3rem;
+    margin: 0 auto 28px;
+    box-shadow: 0 12px 40px rgba(0,110,110,0.25);
+    animation: pulse 3s ease-in-out infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { transform: scale(1); box-shadow: 0 12px 40px rgba(0,110,110,0.25); }
+    50% { transform: scale(1.04); box-shadow: 0 16px 48px rgba(0,110,110,0.35); }
+  }
+  .welcome-subtitle {
+    font-size: 1.1rem;
+    color: var(--mid);
+    max-width: 480px;
+    margin: 16px auto 32px;
+    line-height: 1.7;
+  }
+  .name-input-wrap {
+    max-width: 360px;
+    width: 100%;
+    margin: 0 auto 24px;
+    text-align: left;
+  }
+
+  /* ── TIMELINE EVENTS (screen 1) ── */
+  .events-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 14px;
+    margin: 24px 0;
+  }
+  .event-card {
+    background: var(--white);
+    border-radius: 14px;
+    padding: 18px;
+    border: 2px solid var(--border);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    position: relative;
+    user-select: none;
+  }
+  .event-card:hover {
+    border-color: var(--teal-light);
+    transform: translateY(-3px);
+    box-shadow: 0 8px 24px rgba(0,110,110,0.12);
+  }
+  .event-card.selected {
+    border-color: var(--teal);
+    background: var(--teal-pale);
+    box-shadow: 0 0 0 3px rgba(0,168,154,0.2);
+  }
+  .event-card.selected::after {
+    content: '✓';
+    position: absolute;
+    top: 10px; right: 14px;
+    color: var(--teal);
+    font-weight: 700;
+    font-size: 1.1rem;
+  }
+  .event-year {
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    color: var(--teal-light);
+    margin-bottom: 4px;
+  }
+  .event-name {
+    font-weight: 600;
+    font-size: 0.95rem;
+    color: var(--ink);
+    margin-bottom: 6px;
+  }
+  .event-spark {
+    font-size: 0.82rem;
+    color: var(--mid);
+    font-style: italic;
+    line-height: 1.5;
+  }
+  .event-emoji {
+    font-size: 1.8rem;
+    margin-bottom: 10px;
+    display: block;
+  }
+
+  /* ── QUESTION BUILDER (screen 2) ── */
+  .question-starters {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin: 16px 0;
+  }
+  .starter-chip {
+    padding: 8px 18px;
+    border-radius: 50px;
+    border: 2px solid var(--border);
+    font-weight: 600;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    background: white;
+    color: var(--ink);
+  }
+  .starter-chip:hover { border-color: var(--teal); color: var(--teal); }
+  .starter-chip.selected { background: var(--teal); color: white; border-color: var(--teal); }
+
+  .question-preview {
+    background: var(--gold-pale);
+    border: 2px dashed var(--gold);
+    border-radius: 12px;
+    padding: 18px 20px;
+    margin-top: 16px;
+    font-size: 1rem;
+    font-style: italic;
+    color: var(--ink);
+    min-height: 54px;
+    transition: all 0.3s;
+  }
+
+  .example-questions {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin: 12px 0;
+  }
+  .example-q {
+    background: var(--green-pale);
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-size: 0.88rem;
+    color: var(--green);
+    font-style: italic;
+    border-left: 3px solid var(--green);
+  }
+
+  /* ── SOURCES (screen 3) ── */
+  .source-card {
+    background: var(--white);
+    border-radius: 14px;
+    padding: 18px 20px;
+    margin-bottom: 12px;
+    border: 1.5px solid var(--border);
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+    transition: box-shadow 0.2s;
+  }
+  .source-card:hover { box-shadow: var(--shadow); }
+  .source-icon {
+    width: 46px; height: 46px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.3rem;
+    flex-shrink: 0;
+  }
+  .source-icon.web { background: var(--teal-pale); }
+  .source-icon.book { background: var(--gold-pale); }
+  .source-icon.person { background: var(--green-pale); }
+  .source-name { font-weight: 600; font-size: 0.95rem; color: var(--ink); }
+  .source-url { font-size: 0.78rem; color: var(--teal-light); margin: 2px 0; }
+  .source-desc { font-size: 0.85rem; color: var(--mid); line-height: 1.5; }
+
+  .trust-check {
+    background: var(--teal-pale);
+    border-radius: 12px;
+    padding: 18px 20px;
+    margin-top: 20px;
+  }
+  .trust-check h4 { font-weight: 600; color: var(--teal); margin-bottom: 12px; }
+  .trust-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 8px 0;
+    border-bottom: 1px solid rgba(0,110,110,0.1);
+    font-size: 0.88rem;
+  }
+  .trust-row:last-child { border: none; }
+  .trust-row .icon { font-size: 1.1rem; flex-shrink: 0; margin-top: 1px; }
+
+  /* ── NOTE TAKING (screen 4) ── */
+  .note-tip {
+    background: linear-gradient(135deg, var(--gold-pale), #FFF8F0);
+    border: 1.5px solid var(--gold-light);
+    border-radius: 14px;
+    padding: 18px 20px;
+    margin-bottom: 20px;
+    display: flex;
+    gap: 14px;
+    align-items: flex-start;
+  }
+  .note-tip-icon { font-size: 1.8rem; flex-shrink: 0; }
+  .note-source-block {
+    background: var(--white);
+    border-radius: 16px;
+    padding: 20px 22px;
+    box-shadow: var(--shadow);
+    margin-bottom: 16px;
+    border: 1.5px solid var(--border);
+  }
+  .note-source-title {
+    font-weight: 700;
+    font-size: 0.8rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--teal-light);
+    margin-bottom: 14px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .fact-rows { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
+  .fact-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+  }
+  .fact-num {
+    min-width: 24px; height: 24px;
+    background: var(--teal);
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.75rem;
+    font-weight: 700;
+    flex-shrink: 0;
+    margin-top: 10px;
+  }
+  .fact-num.gold { background: var(--gold); }
+
+  /* ── REFLECTION (screen 5) ── */
+  .interest-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin: 16px 0;
+  }
+  @media (max-width: 500px) { .interest-grid { grid-template-columns: 1fr; } }
+  .interest-chip {
+    padding: 10px 14px;
+    border-radius: 10px;
+    border: 2px solid var(--border);
+    cursor: pointer;
+    font-size: 0.88rem;
+    font-weight: 500;
+    text-align: left;
+    transition: all 0.2s;
+    background: white;
+  }
+  .interest-chip:hover { border-color: var(--teal-light); }
+  .interest-chip.selected { background: var(--teal-pale); border-color: var(--teal); color: var(--teal); font-weight: 600; }
+
+  .star-rating { display: flex; gap: 8px; margin-top: 8px; }
+  .star { font-size: 1.5rem; cursor: pointer; transition: transform 0.15s; color: #ccc; }
+  .star:hover, .star.lit { color: var(--gold-light); transform: scale(1.2); }
+
+  /* ── COMPLETION ── */
+  #s5 { text-align: center; }
+  .completion-badge {
+    width: 140px; height: 140px;
+    background: linear-gradient(135deg, var(--teal), var(--teal-light));
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 3.5rem;
+    margin: 0 auto 24px;
+    box-shadow: 0 16px 48px rgba(0,168,154,0.3);
+    animation: popIn 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  }
+  @keyframes popIn {
+    from { transform: scale(0); opacity: 0; }
+    to { transform: scale(1); opacity: 1; }
+  }
+  .summary-row {
+    background: var(--white);
+    border-radius: 12px;
+    padding: 14px 18px;
+    margin: 8px 0;
+    border: 1.5px solid var(--border);
+    text-align: left;
+    font-size: 0.9rem;
+  }
+  .summary-label { font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: var(--teal-light); margin-bottom: 4px; }
+  .summary-value { color: var(--ink); font-weight: 500; }
+
+  /* ── PRINT STYLES ── */
+  @media print {
+    body { background: white !important; }
+    body::before { display: none; }
+    #progress-bar, #step-nav, #toast { display: none !important; }
+    .screen { display: none !important; }
+    #s6 { display: block !important; padding: 0 !important; max-width: 100% !important; animation: none !important; }
+    .no-print { display: none !important; }
+    .print-header { display: block !important; }
+    .summary-row { break-inside: avoid; border: 1px solid #ccc !important; box-shadow: none !important; }
+    .submit-box { display: none !important; }
+    .completion-badge { display: none !important; }
+    .print-only-title { display: block !important; }
+    .divider { background: #ccc !important; }
+  }
+  .print-only-title { display: none; }
+
+  /* ── SCREENSHOT HINT BOX ── */
+  .submit-box {
+    background: linear-gradient(135deg, #E0F5F3, #EAF3E8);
+    border: 2px solid var(--teal-light);
+    border-radius: 16px;
+    padding: 22px 24px;
+    margin-bottom: 24px;
+  }
+  .submit-step {
+    display: flex;
+    gap: 14px;
+    align-items: flex-start;
+    margin-bottom: 16px;
+  }
+  .submit-step:last-child { margin-bottom: 0; }
+  .submit-num {
+    min-width: 32px; height: 32px;
+    background: var(--teal);
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 0.9rem;
+    flex-shrink: 0;
+  }
+  .submit-step-body p { font-weight: 600; font-size: 0.95rem; margin-bottom: 4px; }
+  .submit-step-body .hint { font-size: 0.84rem; color: var(--mid); line-height: 1.7; }
+  .shortcut-pill {
+    display: inline-block;
+    background: var(--ink);
+    color: white;
+    font-size: 0.78rem;
+    font-weight: 700;
+    padding: 2px 10px;
+    border-radius: 6px;
+    font-family: monospace;
+    letter-spacing: 0.05em;
+  }
+
+  /* ── DIVIDER ── */
+  .divider {
+    height: 2px;
+    background: linear-gradient(90deg, var(--teal-pale), var(--gold-pale), transparent);
+    border: none;
+    border-radius: 2px;
+    margin: 28px 0;
+  }
+
+  /* ── BADGE STRIP ── */
+  .badge {
+    display: inline-block;
+    padding: 3px 12px;
+    border-radius: 50px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+  .badge-teal { background: var(--teal-pale); color: var(--teal); }
+  .badge-gold { background: var(--gold-pale); color: var(--gold); }
+
+  /* ── CATEGORY FILTER BAR ── */
+  .filter-bar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 16px 0 20px;
+  }
+  .filter-btn {
+    padding: 7px 16px;
+    border-radius: 50px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+    border: 2px solid var(--border);
+    background: var(--white);
+    color: var(--mid);
+    transition: all 0.2s;
+  }
+  .filter-btn:hover { border-color: var(--teal-light); color: var(--teal); }
+  .filter-btn.active { background: var(--teal); border-color: var(--teal); color: white; }
+
+  /* ── CATEGORY SECTION HEADER in grid ── */
+  .cat-header {
+    grid-column: 1 / -1;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 8px;
+    margin-bottom: 2px;
+  }
+  .cat-header-label {
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 3px 12px;
+    border-radius: 50px;
+    color: white;
+  }
+  .cat-header-line {
+    flex: 1;
+    height: 1.5px;
+    background: var(--border);
+    border-radius: 2px;
+  }
+
+  /* ── CATEGORY COLOR DOTS on event cards ── */
+  .event-cat-dot {
+    display: inline-block;
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    margin-right: 4px;
+    vertical-align: middle;
+  }
+
+  /* ── HIDDEN EVENTS ── */
+  .event-card.hidden { display: none; }
+
+
+  #toast {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%) translateY(80px);
+    background: var(--red);
+    color: white;
+    padding: 12px 24px;
+    border-radius: 50px;
+    font-size: 0.88rem;
+    font-weight: 600;
+    transition: transform 0.3s ease;
+    z-index: 9999;
+    pointer-events: none;
+  }
+  #toast.show { transform: translateX(-50%) translateY(0); }
+
+  /* ── RESPONSIVE ── */
+  @media (max-width: 600px) {
+    .events-grid { grid-template-columns: 1fr; }
+    .btn-row { flex-direction: column; }
+    .btn { width: 100%; justify-content: center; }
+  }
+
+  .highlight { color: var(--teal); font-weight: 700; }
+  .mt16 { margin-top: 16px; }
+  .mt8 { margin-top: 8px; }
+</style>
+</head>
+<body>
+
+<div id="progress-bar" style="width:0%"></div>
+<div id="step-nav"></div>
+<div id="toast">⚠ Please fill this in before continuing</div>
+
+<!-- ══════════════════════════════════════════════════════ SCREEN 0 — WELCOME -->
+<div class="screen active" id="s0">
+  <div class="koru-hero">🌿</div>
+  <p class="step-label">Aotearoa History Explorer</p>
+  <h1 class="display-title">Kia ora,<br>let's explore the past!</h1>
+  <p class="welcome-subtitle">
+    Your class has a timeline of amazing events from Aotearoa's history.
+    This app will guide you through exploring one that sparks <em>your</em> curiosity —
+    and help you research it like a real historian.
+  </p>
+  <div class="name-input-wrap">
+    <label for="student-name">What's your name?</label>
+    <input type="text" id="student-name" placeholder="Type your name here..." autocomplete="off" oninput="checkWelcomeComplete()">
+  </div>
+  <div class="name-input-wrap">
+    <label for="student-class">Your class</label>
+    <input type="text" id="student-class" placeholder="e.g. Room 12" autocomplete="off" oninput="checkWelcomeComplete()">
+  </div>
+  <div style="text-align:center; margin-top: 24px;">
+    <button class="btn btn-primary" onclick="startApp()">Start exploring →</button>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════ SCREEN 1 — CHOOSE AN EVENT -->
+<div class="screen" id="s1">
+  <p class="step-label">Step 1 of 5 · Explore</p>
+  <h2 class="section-title">Look at the timeline, then pick <span class="highlight">one event</span> that sparks your curiosity</h2>
+  <p class="body-text mt8">Walk along the class timeline. What catches your eye? What makes you go "wow"? Pick the one that makes you most curious — there's no wrong answer!</p>
+
+  <div class="filter-bar" id="filter-bar">
+    <!-- Populated by JS -->
+  </div>
+
+  <div class="events-grid" id="events-grid">
+    <!-- Populated by JS -->
+  </div>
+
+  <div class="card card-gold" style="margin-top: 8px;">
+    <label style="margin-top:0;font-size:0.88rem;color:var(--gold);">💬 I chose this event because...</label>
+    <textarea id="why-chosen" placeholder="Write one or two sentences about what made you curious about this..."></textarea>
+  </div>
+
+  <div class="btn-row">
+    <button class="btn btn-secondary" onclick="goBack(0)">← Back</button>
+    <button class="btn btn-primary" onclick="goTo(2)">Next: Build my question →</button>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════ SCREEN 2 — BUILD YOUR QUESTION -->
+<div class="screen" id="s2">
+  <p class="step-label">Step 2 of 5 · Research Question</p>
+  <h2 class="section-title">Build your <span class="highlight">research question</span></h2>
+  <p class="body-text mt8">Good researchers don't just search randomly — they start with a focused question. A great question can't be answered with just "yes" or "no".</p>
+
+  <hr class="divider">
+
+  <h4 style="font-weight:600; margin-bottom: 10px;">✅ Good research questions look like this:</h4>
+  <div class="example-questions">
+    <div class="example-q">"How did women change the voting laws in 1893?"</div>
+    <div class="example-q">"Why did the Treaty of Waitangi cause disagreements?"</div>
+    <div class="example-q">"What made the Māori land march so powerful?"</div>
+    <div class="example-q">"Who were the ordinary people behind the Waterfront strike?"</div>
+  </div>
+
+  <hr class="divider">
+
+  <h4 style="font-weight:600; margin-bottom: 10px;">1. Choose a question starter:</h4>
+  <div class="question-starters" id="starter-chips">
+    <div class="starter-chip" onclick="selectStarter(this,'How')">How</div>
+    <div class="starter-chip" onclick="selectStarter(this,'Why')">Why</div>
+    <div class="starter-chip" onclick="selectStarter(this,'What')">What</div>
+    <div class="starter-chip" onclick="selectStarter(this,'Who')">Who</div>
+    <div class="starter-chip" onclick="selectStarter(this,'When')">When</div>
+  </div>
+
+  <h4 style="font-weight:600; margin-top:20px; margin-bottom:6px;">2. Finish writing your question:</h4>
+  <p style="font-size:0.85rem; color:var(--mid); margin-bottom:8px;">
+    Your event: <span id="question-event-reminder" class="highlight">—</span>
+  </p>
+  <div id="question-preview" class="question-preview">Your question will appear here as you type...</div>
+  <input type="text" id="question-rest" placeholder="...did the Christchurch earthquake change how people think about cities?"
+    oninput="updateQuestionPreview()" style="margin-top:12px;">
+
+  <hr class="divider">
+
+  <div class="card card-teal">
+    <label style="margin-top:0;">🤔 What do you already know about this?</label>
+    <textarea id="prior-knowledge" placeholder="It's okay if it's not much! Write 1–2 things you already know or think..."></textarea>
+  </div>
+
+  <div class="btn-row">
+    <button class="btn btn-secondary" onclick="goBack(1)">← Back</button>
+    <button class="btn btn-primary" onclick="goTo(3)">Next: Where to look →</button>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════ SCREEN 3 — WHERE TO LOOK -->
+<div class="screen" id="s3">
+  <p class="step-label">Step 3 of 5 · Sources</p>
+  <h2 class="section-title">Where to find <span class="highlight">reliable information</span></h2>
+  <p class="body-text mt8">Not everything on the internet is trustworthy! Here are the best places to look for NZ history — chosen because they're written by experts and kept up to date.</p>
+
+  <hr class="divider">
+  <h4 style="font-weight:600; margin-bottom:14px;">📱 Best websites for NZ history:</h4>
+
+  <div id="sources-list">
+    <!-- Populated by JS -->
+  </div>
+
+  <div class="trust-check">
+    <h4>🔍 How to check if a source is trustworthy:</h4>
+    <div class="trust-row"><span class="icon">👤</span><div><strong>Who wrote it?</strong> Look for a government, museum, university, or named expert. If there's no author, be careful.</div></div>
+    <div class="trust-row"><span class="icon">📅</span><div><strong>Is it up to date?</strong> Check for a date on the page. Older pages about recent events can have wrong information.</div></div>
+    <div class="trust-row"><span class="icon">🔁</span><div><strong>Does it match other sources?</strong> If two or three trusted sources say the same thing, it's more likely to be true.</div></div>
+    <div class="trust-row"><span class="icon">💰</span><div><strong>Is someone trying to sell you something?</strong> Websites trying to sell products may not give balanced information.</div></div>
+  </div>
+
+  <hr class="divider">
+  <h4 style="font-weight:600; margin-bottom:14px;">🏫 Other great places to look:</h4>
+  <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+    <div class="card" style="padding:14px 16px; margin-bottom:0;">
+      <strong style="font-size:0.85rem; color:var(--teal);">At School</strong>
+      <ul style="margin-top:8px; padding-left:16px; font-size:0.85rem; color:var(--mid); line-height:1.8;">
+        <li>Library books</li>
+        <li>Ask your teacher or librarian</li>
+        <li>Encyclopaedias</li>
+        <li>Museum websites</li>
+      </ul>
+    </div>
+    <div class="card" style="padding:14px 16px; margin-bottom:0;">
+      <strong style="font-size:0.85rem; color:var(--green);">At Home</strong>
+      <ul style="margin-top:8px; padding-left:16px; font-size:0.85rem; color:var(--mid); line-height:1.8;">
+        <li>Ask a parent or grandparent</li>
+        <li>Family history books</li>
+        <li>Community elders or kaumātua</li>
+        <li>Local marae or museum</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="btn-row">
+    <button class="btn btn-secondary" onclick="goBack(2)">← Back</button>
+    <button class="btn btn-primary" onclick="goTo(4)">Next: Take notes →</button>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════ SCREEN 4 — NOTE TAKING -->
+<div class="screen" id="s4">
+  <p class="step-label">Step 4 of 5 · Take Notes</p>
+  <h2 class="section-title">Take notes <span class="highlight">in your own words</span></h2>
+
+  <div class="note-tip">
+    <div class="note-tip-icon">⭐</div>
+    <div>
+      <strong>The 3-step note trick:</strong><br>
+      <span style="font-size:0.9rem; color:var(--mid); line-height:1.7;">
+        1. Read a small section. &nbsp;2. Look away from the screen. &nbsp;3. Write what you remember — don't copy!
+        <br>This helps you <em>actually understand</em> what you're reading.
+      </span>
+    </div>
+  </div>
+
+  <p style="font-size:0.85rem; color:var(--mid); margin-bottom:16px;">
+    Your research question: <span id="note-question-reminder" class="highlight">—</span>
+  </p>
+
+  <!-- Source 1 -->
+  <div class="note-source-block">
+    <div class="note-source-title">📄 Source 1</div>
+    <label style="margin-top:0;">Website name or book title:</label>
+    <input type="text" id="src1-name" placeholder="e.g. NZ History — nzhistory.govt.nz">
+    <div class="fact-rows">
+      <label>Key facts I found (in MY own words):</label>
+      <div class="fact-row"><div class="fact-num">1</div><input type="text" id="s1f1" placeholder="Fact one..."></div>
+      <div class="fact-row"><div class="fact-num">2</div><input type="text" id="s1f2" placeholder="Fact two..."></div>
+      <div class="fact-row"><div class="fact-num">3</div><input type="text" id="s1f3" placeholder="Fact three..."></div>
+    </div>
+    <label>Something that surprised me:</label>
+    <textarea id="s1-surprise" placeholder="What was unexpected or interesting?"></textarea>
+  </div>
+
+  <!-- Source 2 -->
+  <div class="note-source-block">
+    <div class="note-source-title" style="color: var(--gold);">📄 Source 2</div>
+    <label style="margin-top:0;">Website name or book title:</label>
+    <input type="text" id="src2-name" placeholder="e.g. Te Ara Encyclopedia — teara.govt.nz">
+    <div class="fact-rows">
+      <label>Key facts I found (in MY own words):</label>
+      <div class="fact-row"><div class="fact-num gold">1</div><input type="text" id="s2f1" placeholder="Fact one..."></div>
+      <div class="fact-row"><div class="fact-num gold">2</div><input type="text" id="s2f2" placeholder="Fact two..."></div>
+      <div class="fact-row"><div class="fact-num gold">3</div><input type="text" id="s2f3" placeholder="Fact three..."></div>
+    </div>
+    <label>Something different from Source 1:</label>
+    <textarea id="s2-diff" placeholder="Did this source add anything new or different?"></textarea>
+  </div>
+
+  <div class="btn-row">
+    <button class="btn btn-secondary" onclick="goBack(3)">← Back</button>
+    <button class="btn btn-primary" onclick="goTo(5)">Next: Reflect & finish →</button>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════ SCREEN 5 — REFLECTION -->
+<div class="screen" id="s5">
+  <p class="step-label">Step 5 of 5 · Reflect</p>
+  <h2 class="section-title">Reflect on what you <span class="highlight">discovered</span></h2>
+  <p class="body-text mt8">Almost done! These questions help your teacher understand what you'd love to learn more about next term.</p>
+
+  <hr class="divider">
+
+  <div class="card card-teal">
+    <label style="margin-top:0; font-weight:700;">📝 Answer your research question:</label>
+    <p style="font-size:0.83rem; color:var(--mid); margin-top:4px; margin-bottom:6px;">
+      Write 3–5 sentences using what you discovered from your sources.
+    </p>
+    <textarea id="final-answer" style="min-height:120px;" placeholder="Based on my research, I found out that..."></textarea>
+  </div>
+
+  <div class="card card-gold">
+    <label style="margin-top:0; font-weight:700;">🤔 A question I still have:</label>
+    <textarea id="still-wondering" placeholder="What are you still curious about? What would you like to find out more?"></textarea>
+  </div>
+
+  <hr class="divider">
+
+  <h4 style="font-weight:700; margin-bottom: 10px;">📊 Help your teacher plan next term</h4>
+  <p style="font-size:0.88rem; color:var(--mid); margin-bottom:14px;">Tick all the topics that interest you (you can choose more than one):</p>
+
+  <div class="interest-grid" id="interest-grid">
+    <!-- Populated by JS -->
+  </div>
+
+  <div class="card" style="margin-top:8px;">
+    <label style="margin-top:0; font-weight:700;">💡 The big question I'd love my class to explore:</label>
+    <div style="display:flex; flex-direction:column; gap:8px; margin-top:10px;" id="big-q-choices">
+    </div>
+  </div>
+
+  <div class="card card-green">
+    <label style="margin-top:0; font-weight:700;">⭐ How did you find this research task?</label>
+    <div class="star-rating" id="star-rating">
+      <span class="star" onclick="rateStar(1)">★</span>
+      <span class="star" onclick="rateStar(2)">★</span>
+      <span class="star" onclick="rateStar(3)">★</span>
+      <span class="star" onclick="rateStar(4)">★</span>
+      <span class="star" onclick="rateStar(5)">★</span>
+    </div>
+    <label style="margin-top: 12px;">One word to describe how you felt while researching:</label>
+    <input type="text" id="one-word" placeholder="e.g. curious, excited, confused, proud...">
+  </div>
+
+  <div class="btn-row">
+    <button class="btn btn-secondary" onclick="goBack(4)">← Back</button>
+    <button class="btn btn-gold" onclick="finish()">🎉 Complete my research!</button>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════ SCREEN 6 — COMPLETION -->
+<div class="screen" id="s6">
+
+  <!-- Print-only title (hidden on screen, shows when printing) -->
+  <div class="print-only-title" style="text-align:center; margin-bottom:20px;">
+    <h1 style="font-family:'Playfair Display',serif; font-size:1.6rem; color:#006E6E; margin-bottom:4px;">Aotearoa History Research Provocation</h1>
+    <p style="font-size:0.85rem; color:#5A5A7A;">My completed research summary</p>
+    <hr style="border:1px solid #D8D0C4; margin:14px 0;">
+  </div>
+
+  <!-- Screen-only celebration header -->
+  <div class="no-print" style="text-align:center;">
+    <div class="completion-badge">🎉</div>
+    <h2 class="section-title">Ka pai, <span id="finish-name" class="highlight"></span>!</h2>
+    <p class="body-text mt8">You've finished your NZ History research provocation. Your full summary is below — save it so your teacher can see your amazing work!</p>
+  </div>
+
+  <hr class="divider no-print">
+
+  <!-- ── HOW TO SAVE ── -->
+  <div class="submit-box no-print">
+    <p style="font-weight:700; color:var(--teal); font-size:1rem; margin-bottom:14px;">📸 Save your work for your teacher</p>
+
+    <!-- Option A: Screenshot -->
+    <div class="submit-step">
+      <div class="submit-num">A</div>
+      <div class="submit-step-body">
+        <p>Take a screenshot of this page</p>
+        <div class="hint">
+          On a Chromebook press <span class="shortcut-pill">Ctrl</span> + <span class="shortcut-pill">Show Windows ⬛⬛</span> to screenshot the whole screen, or <span class="shortcut-pill">Ctrl</span> + <span class="shortcut-pill">Shift</span> + <span class="shortcut-pill">Show Windows</span> to select just this part. Your screenshot saves to your <strong>Downloads</strong> folder — then attach it to your Google Classroom assignment and turn it in.
+        </div>
+      </div>
+    </div>
+
+    <div style="text-align:center; font-size:0.8rem; color:var(--border); font-weight:600; letter-spacing:0.1em; margin:4px 0 16px;">— OR —</div>
+
+    <!-- Option B: Print -->
+    <div class="submit-step">
+      <div class="submit-num">B</div>
+      <div class="submit-step-body">
+        <p>Print your summary</p>
+        <div class="hint" style="margin-bottom:10px;">
+          Click the button below. Your browser will open a print window — choose <strong>Save as PDF</strong> as the printer to get a file you can attach to Classroom, or print it on paper to hand to your teacher.
+        </div>
+        <button class="btn btn-primary" onclick="window.print()" style="font-size:0.88rem; padding:10px 22px;">
+          🖨️ Print / Save as PDF
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── SUMMARY (shows on screen AND in print) ── -->
+  <h4 style="font-weight:700; color:var(--ink); margin-bottom:12px;" class="no-print">Your full research summary:</h4>
+  <div id="summary-block"></div>
+
+  <!-- print-friendly note at bottom -->
+  <div class="print-only-title" style="text-align:center; margin-top:24px; font-size:0.78rem; color:#888;">
+    Printed from the Aotearoa History Explorer · NZ History Research Provocation
+  </div>
+
+</div>
+
+<script>
+// ══════════════════════════════════════════ DATA
+const CATEGORIES = [
+  { id: "all",         label: "All Events",              color: "var(--teal)" },
+  { id: "nature",      label: "🌿 Nature & Environment", color: "#3A6B35" },
+  { id: "maori",       label: "🌀 Māori History",        color: "#006E6E" },
+  { id: "european",    label: "⛵ Exploration & Settlement", color: "#7A5C1E" },
+  { id: "social",      label: "🗳️ Social & Political",   color: "#5A3A7A" },
+  { id: "culture",     label: "🏆 Innovation, Sport & Culture", color: "#B83232" },
+];
+
+const EVENTS = [
+  // ── Natural History & Environment
+  { year: "75 Million Years Ago", name: "Dinosaurs in NZ!", emoji: "🦕", spark: "Can you believe dinosaurs once roamed Hawke's Bay? What kind were they?", cat: "nature" },
+  { year: "1400", name: "Extinction of the Moa", emoji: "🦤", spark: "How did a giant bird that couldn't fly completely disappear from Aotearoa?", cat: "nature" },
+  { year: "1956", name: "Opo the friendly dolphin", emoji: "🐬", spark: "A wild dolphin chose to play with children every day — what happened to her?", cat: "nature" },
+  { year: "2019", name: "Whakaari / White Island eruption", emoji: "🌋", spark: "This happened in your lifetime — what makes NZ's land so explosive?", cat: "nature" },
+  // ── Māori History & Te Tiriti
+  { year: "1250–1300", name: "The 7 legendary waka from Hawaiki", emoji: "🛶", spark: "What did it take to sail across the open ocean with no maps or GPS?", cat: "maori" },
+  { year: "1840", name: "Treaty of Waitangi signed", emoji: "📜", spark: "Why might two groups understand the same agreement completely differently?", cat: "maori" },
+  { year: "1987", name: "Māori becomes an official language", emoji: "🗣️", spark: "What was school like before te reo Māori was officially recognised?", cat: "maori" },
+  { year: "2008", name: "Largest-ever Treaty settlement", emoji: "🤝", spark: "How do a government and an iwi work together to fix past mistakes?", cat: "maori" },
+  // ── European Exploration & Settlement
+  { year: "1769", name: "Captain Cook arrives & maps NZ", emoji: "🗺️", spark: "How accurate were Cook's maps? Compare them to how NZ really looks!", cat: "european" },
+  { year: "1859–1861", name: "The Gold Rushes", emoji: "⛏️", spark: "What was the 'get rich quick' life of a gold miner actually like?", cat: "european" },
+  { year: "1908", name: "NZ population hits 1 million", emoji: "📈", spark: "We now have 5 million people — what changed to make the population grow so fast?", cat: "european" },
+  // ── Social & Political Milestones
+  { year: "1893", name: "NZ women win the vote", emoji: "🗳️", spark: "How did one determined woman change an entire country's rules?", cat: "social" },
+  { year: "1933", name: "Elizabeth McCombs — first female MP", emoji: "👩‍⚖️", spark: "What obstacles did women face to become leaders in government?", cat: "social" },
+  { year: "1935", name: "Free secondary education begins", emoji: "🏫", spark: "Can you imagine having to pay to go to high school? Why did this change?", cat: "social" },
+  { year: "1985", name: "Rainbow Warrior bombing", emoji: "🌈", spark: "Why would one country's secret agents bomb a protest ship in peacetime?", cat: "social" },
+  { year: "1999", name: "Helen Clark — first elected female PM", emoji: "🏛️", spark: "What does it mean for a country when a woman leads it for the first time?", cat: "social" },
+  // ── Innovation, Sport & Culture
+  { year: "1905", name: "Birth of the 'All Blacks' name", emoji: "🏉", spark: "Every NZ kid knows the All Blacks — but do you know where the name came from?", cat: "culture" },
+  { year: "1938", name: "Buzzy Bee invented in Auckland", emoji: "🐝", spark: "A classic Kiwi toy invented right here — how does one idea become iconic?", cat: "culture" },
+  { year: "1959", name: "Chinese gooseberry renamed 'Kiwifruit'", emoji: "🥝", spark: "How did a fruit get a brand new identity — and why did it matter?", cat: "culture" },
+  { year: "1989", name: "The Internet arrives in NZ!", emoji: "💻", spark: "Imagine life with NO internet — how did people find information, connect, or shop?", cat: "culture" },
+  { year: "1994", name: "Anna Paquin wins an Oscar aged 11", emoji: "🏆", spark: "She was about YOUR age when she won — what can you achieve at 11?", cat: "culture" },
+];
+
+const SOURCES = [
+  { icon: "🏛️", type: "web", name: "NZ History", url: "nzhistory.govt.nz", desc: "Official NZ Government history site. Great for reliable facts, timelines, and stories about real people." },
+  { icon: "📖", type: "web", name: "Te Ara — Encyclopedia of NZ", url: "teara.govt.nz", desc: "Covers everything about Aotearoa — from people to nature to events. Includes images and short videos." },
+  { icon: "📰", type: "web", name: "Papers Past", url: "paperspast.natlib.govt.nz", desc: "Real old NZ newspapers! Search by keyword or year to see what people said at the time." },
+  { icon: "🎙️", type: "web", name: "RNZ — Radio New Zealand", url: "rnz.co.nz/news/nz-history", desc: "Audio stories and written articles about NZ history, told by people who lived it." },
+  { icon: "🎓", type: "web", name: "Kiwi Kids News", url: "kiwikidsnews.co.nz", desc: "News and history written at the right level for Year 5–6 students." },
+];
+
+const INTERESTS = [
+  "Nature & the environment 🌿",
+  "Māori history and culture 🌀",
+  "Explorers and voyagers ⛵",
+  "Women's rights and leadership 🗳️",
+  "Ordinary people making change ✊",
+  "Sport and Kiwi culture 🏉",
+  "Science and innovation 💡",
+  "Language and identity 🗣️",
+  "Land rights and fairness 🌱",
+  "Disasters and rebuilding 🌋",
+];
+
+const BIG_QUESTIONS = [
+  "Why do some problems from history keep happening today?",
+  "How did people in the past solve big problems — and can we use similar ideas now?",
+  "What makes a fair society, and how do we work toward one?",
+  "How does the land we live on shape who we are?",
+  "How do ordinary people create big change?",
+  "What could we design or create to help our community today?",
+];
+
+// ══════════════════════════════════════════ STATE
+let currentScreen = 0;
+let selectedEvent = null;
+let selectedStarter = "";
+let selectedInterests = new Set();
+let selectedBigQ = null;
+let starRating = 0;
+const TOTAL_STEPS = 7; // 0-6
+
+// ══════════════════════════════════════════ INIT
+function init() {
+  // ── Build category filter bar
+  const fb = document.getElementById('filter-bar');
+  CATEGORIES.forEach(cat => {
+    const btn = document.createElement('button');
+    btn.className = 'filter-btn' + (cat.id === 'all' ? ' active' : '');
+    btn.textContent = cat.label;
+    btn.dataset.cat = cat.id;
+    btn.onclick = () => filterEvents(cat.id);
+    fb.appendChild(btn);
+  });
+
+  // ── Build events grid grouped by category
+  const grid = document.getElementById('events-grid');
+  const catColors = {};
+  CATEGORIES.forEach(c => { catColors[c.id] = c.color; });
+
+  let lastCat = null;
+  EVENTS.forEach((e, i) => {
+    // Insert category header when category changes
+    if (e.cat !== lastCat) {
+      const catInfo = CATEGORIES.find(c => c.id === e.cat);
+      if (catInfo) {
+        const header = document.createElement('div');
+        header.className = 'cat-header';
+        header.dataset.cat = e.cat;
+        header.innerHTML = `
+          <span class="cat-header-label" style="background:${catInfo.color};">${catInfo.label}</span>
+          <div class="cat-header-line"></div>
+        `;
+        grid.appendChild(header);
+      }
+      lastCat = e.cat;
+    }
+    const color = catColors[e.cat] || 'var(--teal)';
+    const card = document.createElement('div');
+    card.className = 'event-card';
+    card.id = 'event-' + i;
+    card.dataset.cat = e.cat;
+    card.style.borderTop = `3px solid ${color}`;
+    card.innerHTML = `
+      <span class="event-emoji">${e.emoji}</span>
+      <div class="event-year" style="color:${color};">${e.year}</div>
+      <div class="event-name">${e.name}</div>
+      <div class="event-spark">"${e.spark}"</div>
+    `;
+    card.onclick = () => selectEvent(i, card);
+    grid.appendChild(card);
+  });
+
+  // ── Build sources list
+  const sl = document.getElementById('sources-list');
+  SOURCES.forEach(s => {
+    sl.innerHTML += `
+      <div class="source-card">
+        <div class="source-icon ${s.type}"><span>${s.icon}</span></div>
+        <div>
+          <div class="source-name">${s.name}</div>
+          <div class="source-url">${s.url}</div>
+          <div class="source-desc">${s.desc}</div>
+        </div>
+      </div>
+    `;
+  });
+
+  // ── Build interest chips
+  const ig = document.getElementById('interest-grid');
+  INTERESTS.forEach((t, i) => {
+    const chip = document.createElement('div');
+    chip.className = 'interest-chip';
+    chip.textContent = t;
+    chip.onclick = () => {
+      chip.classList.toggle('selected');
+      if (chip.classList.contains('selected')) selectedInterests.add(t);
+      else selectedInterests.delete(t);
+    };
+    ig.appendChild(chip);
+  });
+
+  // ── Build big question choices
+  const bq = document.getElementById('big-q-choices');
+  BIG_QUESTIONS.forEach((q, i) => {
+    bq.innerHTML += `
+      <label style="display:flex; align-items:flex-start; gap:10px; cursor:pointer; padding:8px; border-radius:8px; transition:background 0.2s; font-size:0.88rem; margin-top:0;">
+        <input type="radio" name="bigq" value="${i}" onchange="selectedBigQ=${i}" style="margin-top:3px; accent-color:var(--teal); width:auto; flex-shrink:0;">
+        <span>${q}</span>
+      </label>
+    `;
+  });
+
+  buildStepNav();
+  updateProgress();
+}
+
+// ── Filter events by category
+function filterEvents(catId) {
+  document.querySelectorAll('.filter-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.cat === catId);
+  });
+  document.querySelectorAll('.event-card').forEach(card => {
+    const matches = catId === 'all' || card.dataset.cat === catId;
+    card.classList.toggle('hidden', !matches);
+  });
+  document.querySelectorAll('.cat-header').forEach(h => {
+    const matches = catId === 'all' || h.dataset.cat === catId;
+    h.classList.toggle('hidden', !matches);
+  });
+}
+
+function buildStepNav() {
+  const nav = document.getElementById('step-nav');
+  // screens 1–5 are the "steps" (0 is welcome, 6 is done)
+  for (let i = 1; i <= 5; i++) {
+    const dot = document.createElement('div');
+    dot.className = 'step-dot';
+    dot.id = 'dot-' + i;
+    dot.title = 'Step ' + i;
+    dot.onclick = () => { if (i < currentScreen || i === currentScreen) goBack(i); };
+    nav.appendChild(dot);
+  }
+}
+
+// ══════════════════════════════════════════ NAVIGATION
+function goTo(screen, isBack = false) {
+  // Only validate when going FORWARD, never when going back
+  if (!isBack && !validateScreen(currentScreen)) return;
+  document.getElementById('s' + currentScreen).classList.remove('active');
+  currentScreen = screen;
+  document.getElementById('s' + screen).classList.add('active');
+  updateProgress();
+  updateDots();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+
+  // Sync reminders
+  if (screen === 2 && selectedEvent !== null) {
+    document.getElementById('question-event-reminder').textContent = EVENTS[selectedEvent].name;
+  }
+  if (screen === 4) {
+    const q = buildQuestion();
+    document.getElementById('note-question-reminder').textContent = q || '(your question from Step 2)';
+  }
+}
+
+function goBack(screen) {
+  goTo(screen, true);
+}
+
+function startApp() {
+  const name = document.getElementById('student-name').value.trim();
+  if (!name) { showToast('Please enter your name first!'); return; }
+  goTo(1);
+}
+
+// Auto-advance welcome screen when both name + class are filled
+function checkWelcomeComplete() {
+  const name = document.getElementById('student-name').value.trim();
+  const cls  = document.getElementById('student-class').value.trim();
+  if (name && cls && currentScreen === 0) {
+    setTimeout(() => {
+      // Only auto-advance if still on screen 0
+      if (currentScreen === 0) goTo(1);
+    }, 400);
+  }
+}
+
+function updateProgress() {
+  const pct = currentScreen === 0 ? 0 : currentScreen === 6 ? 100 : (currentScreen / 5) * 90;
+  document.getElementById('progress-bar').style.width = pct + '%';
+}
+
+function updateDots() {
+  for (let i = 1; i <= 5; i++) {
+    const dot = document.getElementById('dot-' + i);
+    if (!dot) continue;
+    dot.className = 'step-dot';
+    if (i < currentScreen) dot.classList.add('done');
+    else if (i === currentScreen) dot.classList.add('active');
+  }
+}
+
+// ══════════════════════════════════════════ VALIDATION
+function validateScreen(screen) {
+  if (screen === 0) return true; // handled by startApp
+  if (screen === 1) {
+    if (selectedEvent === null) { showToast('Choose an event from the timeline!'); return false; }
+    if (!document.getElementById('why-chosen').value.trim()) { showToast('Tell us why you chose this event'); return false; }
+  }
+  if (screen === 2) {
+    if (!selectedStarter) { showToast('Pick a question starter word'); return false; }
+    if (!document.getElementById('question-rest').value.trim()) { showToast('Finish writing your research question'); return false; }
+  }
+  return true;
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = '⚠ ' + msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2800);
+}
+
+// ══════════════════════════════════════════ EVENT SELECTION
+function selectEvent(i, card) {
+  document.querySelectorAll('.event-card').forEach(c => c.classList.remove('selected'));
+  card.classList.add('selected');
+  selectedEvent = i;
+}
+
+// ══════════════════════════════════════════ QUESTION BUILDER
+function selectStarter(el, word) {
+  document.querySelectorAll('.starter-chip').forEach(c => c.classList.remove('selected'));
+  el.classList.add('selected');
+  selectedStarter = word;
+  updateQuestionPreview();
+}
+
+function buildQuestion() {
+  const rest = document.getElementById('question-rest').value.trim();
+  if (!selectedStarter && !rest) return '';
+  return (selectedStarter ? selectedStarter + ' ' : '') + rest;
+}
+
+function updateQuestionPreview() {
+  const q = buildQuestion();
+  const preview = document.getElementById('question-preview');
+  if (q) {
+    preview.textContent = '"' + q + '"';
+    preview.style.color = 'var(--ink)';
+  } else {
+    preview.textContent = 'Your question will appear here as you type...';
+    preview.style.color = 'var(--mid)';
+  }
+}
+
+// ══════════════════════════════════════════ STAR RATING
+function rateStar(n) {
+  starRating = n;
+  document.querySelectorAll('.star').forEach((s, i) => {
+    s.classList.toggle('lit', i < n);
+  });
+}
+
+// ══════════════════════════════════════════ FINISH
+function finish() {
+  if (!document.getElementById('final-answer').value.trim()) {
+    showToast('Write your answer before finishing!');
+    return;
+  }
+
+  const name = document.getElementById('student-name').value.trim();
+  const cls  = document.getElementById('student-class').value.trim();
+  const event = selectedEvent !== null ? EVENTS[selectedEvent] : null;
+  const question = buildQuestion();
+
+  // Store data globally so copyAnswers() can access it
+  window._summary = {
+    name, cls, event, question,
+    whyChosen:     document.getElementById('why-chosen').value.trim(),
+    priorKnowledge:document.getElementById('prior-knowledge').value.trim(),
+    src1Name:      document.getElementById('src1-name').value.trim(),
+    s1f1:          document.getElementById('s1f1').value.trim(),
+    s1f2:          document.getElementById('s1f2').value.trim(),
+    s1f3:          document.getElementById('s1f3').value.trim(),
+    s1Surprise:    document.getElementById('s1-surprise').value.trim(),
+    src2Name:      document.getElementById('src2-name').value.trim(),
+    s2f1:          document.getElementById('s2f1').value.trim(),
+    s2f2:          document.getElementById('s2f2').value.trim(),
+    s2f3:          document.getElementById('s2f3').value.trim(),
+    s2Diff:        document.getElementById('s2-diff').value.trim(),
+    finalAnswer:   document.getElementById('final-answer').value.trim(),
+    stillWondering:document.getElementById('still-wondering').value.trim(),
+    interests:     [...selectedInterests],
+    bigQ:          selectedBigQ !== null ? BIG_QUESTIONS[selectedBigQ] : '—',
+    stars:         starRating,
+    oneWord:       document.getElementById('one-word').value.trim(),
+  };
+
+  document.getElementById('finish-name').textContent = name;
+
+  // Build visual summary cards — detailed for print
+  const s = window._summary;
+  const sb = document.getElementById('summary-block');
+  sb.innerHTML = `
+    <div class="summary-row"><div class="summary-label">Student</div><div class="summary-value">${s.name}${s.cls ? ' &nbsp;·&nbsp; ' + s.cls : ''}</div></div>
+    <div class="summary-row"><div class="summary-label">Event I researched</div><div class="summary-value">${s.event ? s.event.emoji + ' &nbsp;<strong>' + s.event.name + '</strong> &nbsp;(' + s.event.year + ')' : '—'}</div></div>
+    <div class="summary-row"><div class="summary-label">Why I chose it</div><div class="summary-value">${s.whyChosen || '—'}</div></div>
+    <div class="summary-row"><div class="summary-label">My research question</div><div class="summary-value" style="font-style:italic; font-size:1rem;">"${s.question || '—'}"</div></div>
+    <div class="summary-row"><div class="summary-label">What I already knew</div><div class="summary-value">${s.priorKnowledge || '—'}</div></div>
+    <div class="summary-row">
+      <div class="summary-label">Source 1 — ${s.src1Name || '—'}</div>
+      <div class="summary-value">
+        ${s.s1f1 ? '1. ' + s.s1f1 : ''}${s.s1f2 ? '<br>2. ' + s.s1f2 : ''}${s.s1f3 ? '<br>3. ' + s.s1f3 : ''}
+        ${s.s1Surprise ? '<br><em>Surprised me: ' + s.s1Surprise + '</em>' : ''}
+      </div>
+    </div>
+    <div class="summary-row">
+      <div class="summary-label">Source 2 — ${s.src2Name || '—'}</div>
+      <div class="summary-value">
+        ${s.s2f1 ? '1. ' + s.s2f1 : ''}${s.s2f2 ? '<br>2. ' + s.s2f2 : ''}${s.s2f3 ? '<br>3. ' + s.s2f3 : ''}
+        ${s.s2Diff ? '<br><em>Different from Source 1: ' + s.s2Diff + '</em>' : ''}
+      </div>
+    </div>
+    <div class="summary-row"><div class="summary-label">My answer to my research question</div><div class="summary-value">${s.finalAnswer || '—'}</div></div>
+    <div class="summary-row"><div class="summary-label">I'm still wondering...</div><div class="summary-value">${s.stillWondering || '—'}</div></div>
+    <div class="summary-row"><div class="summary-label">Topics I'm interested in</div><div class="summary-value">${s.interests.length > 0 ? s.interests.join(' &nbsp;·&nbsp; ') : '—'}</div></div>
+    <div class="summary-row"><div class="summary-label">Big question I'd love to explore</div><div class="summary-value">${s.bigQ}</div></div>
+    <div class="summary-row"><div class="summary-label">How I found this task</div><div class="summary-value">${'★'.repeat(s.stars) + '☆'.repeat(5 - s.stars)}${s.oneWord ? ' &nbsp;·&nbsp; "' + s.oneWord + '"' : ''}</div></div>
+  `;
+
+  document.getElementById('s5').classList.remove('active');
+  currentScreen = 6;
+  document.getElementById('s6').classList.add('active');
+  updateProgress();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function printSummary() {
+  window.print();
+}
+
+// ══════════════════════════════════════════ BOOT
+init();
+</script>
+</body>
+</html>
